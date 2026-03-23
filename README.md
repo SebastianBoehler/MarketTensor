@@ -104,6 +104,22 @@ python scripts/export_onnx.py --run-id latest
 
 Each experiment stores the resolved Hydra configuration, feature manifest, scaler parameters, metrics, predictions, and model artifacts for reproducibility.
 
+## First benchmark snapshot
+
+The repository now includes a first pooled Q1 2024 benchmark slice for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT` on `1h` bars. The figures below are generated directly from saved run artifacts and are intended as the first paper-style benchmark snapshot, not a finished study.
+
+![Benchmark comparison](docs/figures/q1_2024_model_comparison.png)
+
+![Equity curves](docs/figures/q1_2024_equity_curves.png)
+
+Recreate them with:
+
+```bash
+python scripts/generate_figures.py \
+  --run-id logistic_ohlcv_20260323T205807Z \
+  --run-id cnn_ohlcv_20260323T205807Z
+```
+
 ## Methodology principles
 
 - Chronological train/validation/test splits only

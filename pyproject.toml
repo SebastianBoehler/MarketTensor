@@ -21,6 +21,7 @@ dependencies = [
   "requests>=2.32",
   "scikit-learn>=1.5",
   "torch>=2.3",
+  "tueplots>=0.2.1",
 ]
 
 [project.optional-dependencies]
@@ -60,4 +61,3 @@ select = [
 minversion = "8.0"
 addopts = "-ra --cov=markettensor --cov-report=term-missing"
 testpaths = ["tests"]
-
