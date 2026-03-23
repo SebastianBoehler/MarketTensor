@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -99,16 +100,27 @@ class BinanceUMFuturesDataSource(DataSource):
         family_dir = destination / spec.family / symbol
         family_dir.mkdir(parents=True, exist_ok=True)
         file_path = family_dir / file_name
-        if file_path.exists():
-            return file_path
 
         url = self._build_url(symbol, interval, spec.family, spec.cadence, token)
+        checksum_url = f"{url}.CHECKSUM"
+        checksum_path = file_path.with_name(f"{file_path.name}.CHECKSUM")
+        expected_checksum = self._download_checksum(checksum_url, checksum_path)
+        if expected_checksum is None:
+            LOGGER.warning("Archive missing: %s", url)
+            return None
+
+        if file_path.exists() and self._verify_checksum(file_path, expected_checksum):
+            LOGGER.info("Verified existing archive %s", file_path)
+            return file_path
+
         response = self.session.get(url, timeout=30)
         if response.status_code == 404:
-            LOGGER.warning("Archive missing: %s", url)
+            LOGGER.warning("Archive missing after checksum download: %s", url)
             return None
         response.raise_for_status()
         file_path.write_bytes(response.content)
+        if not self._verify_checksum(file_path, expected_checksum):
+            raise ValueError(f"Checksum verification failed for {file_path.name}.")
         LOGGER.info("Downloaded %s", file_path)
         return file_path
 
@@ -125,3 +137,23 @@ class BinanceUMFuturesDataSource(DataSource):
                 f"{BASE_URL}/{cadence}/{family}/{symbol}/{interval}/{symbol}-{interval}-{token}.zip"
             )
         return f"{BASE_URL}/{cadence}/{family}/{symbol}/{symbol}-{family}-{token}.zip"
+
+    def _download_checksum(self, checksum_url: str, checksum_path: Path) -> str | None:
+        response = self.session.get(checksum_url, timeout=30)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        checksum_path.write_text(response.text, encoding="utf-8")
+        return self._parse_checksum(response.text)
+
+    @staticmethod
+    def _parse_checksum(payload: str) -> str:
+        checksum = payload.strip().split()[0]
+        if len(checksum) != 64:
+            raise ValueError(f"Unexpected checksum payload: {payload!r}")
+        return checksum
+
+    @staticmethod
+    def _verify_checksum(file_path: Path, expected_checksum: str) -> bool:
+        digest = hashlib.sha256(file_path.read_bytes()).hexdigest()
+        return digest == expected_checksum

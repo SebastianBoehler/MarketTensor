@@ -13,12 +13,18 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config-name", default="cnn_ohlcv")
     parser.add_argument("--feature-set")
+    parser.add_argument("--symbols", nargs="+")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    overrides = [f"features={args.feature_set}"] if args.feature_set else []
+    overrides: list[str] = []
+    if args.feature_set:
+        overrides.append(f"features={args.feature_set}")
+    if args.symbols:
+        symbols = ",".join(args.symbols)
+        overrides.append(f"experiment.data.symbols=[{symbols}]")
     cfg = load_experiment_config(args.config_name, overrides=overrides)
     config = {
         "data": dict(cfg.data),

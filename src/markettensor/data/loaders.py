@@ -43,10 +43,16 @@ def load_klines(symbol: str, interval: str, raw_dir: Path) -> pd.DataFrame:
         raise FileNotFoundError(f"No kline archives found for {symbol} in {raw_dir}.")
 
     frame = pd.concat((_read_zip_csv(path, KLINE_COLUMNS) for path in files), ignore_index=True)
+    frame = frame[frame["open_time"] != "open_time"].copy()
+    frame["open_time"] = pd.to_numeric(frame["open_time"], errors="coerce")
     frame["timestamp"] = pd.to_datetime(frame["open_time"], unit="ms", utc=True)
     frame["symbol"] = symbol
     columns = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
     output = frame.loc[:, columns].copy()
+    output[["open", "high", "low", "close", "volume"]] = output[
+        ["open", "high", "low", "close", "volume"]
+    ].apply(pd.to_numeric, errors="coerce")
+    output = output.dropna()
     validate_frame(output, CANONICAL_SCHEMA.required_columns)
     return output.sort_values("timestamp").drop_duplicates(["timestamp", "symbol"])
 
