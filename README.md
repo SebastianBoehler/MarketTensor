@@ -106,18 +106,44 @@ Each experiment stores the resolved Hydra configuration, feature manifest, scale
 
 ## First benchmark snapshot
 
-The repository now includes a first pooled Q1 2024 benchmark slice for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT` on `1h` bars. The figures below are generated directly from saved run artifacts and are intended as the first paper-style benchmark snapshot, not a finished study.
+The repository now includes a first pooled Q1 2024 benchmark slice for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT` on `1h` bars. The figures below are generated directly from saved run artifacts using temporal train/validation/test splits, train-only scaling, and validation-based checkpoint selection for deep models. They are intended as a paper-style benchmark snapshot, not a finished study.
 
-![Benchmark comparison](docs/figures/q1_2024_model_comparison.png)
+Current headline results on this slice:
 
-![Equity curves](docs/figures/q1_2024_equity_curves.png)
+- Best accuracy: `1D CNN (OHLCV)` at `0.5469`
+- Best ROC-AUC: `LSTM (OHLCV)` at `0.5356`
+- Best cumulative return: `HGBT (OHLCV)` at `0.7176`
+- Best Sharpe: `1D CNN (OHLCV)` at `1.0636`
+
+![Architecture comparison](docs/figures/q1_2024_architectures_model_comparison.png)
+
+![Architecture equity curves](docs/figures/q1_2024_architectures_equity_curves.png)
+
+![CNN signal ablation](docs/figures/q1_2024_cnn_signal_ablation_model_comparison.png)
 
 Recreate them with:
 
 ```bash
 python scripts/generate_figures.py \
+  --prefix q1_2024_architectures \
+  --title "Pooled Q1 2024 Architecture Comparison (OHLCV)" \
+  --equity-top-k 4 \
   --run-id logistic_ohlcv_20260323T205807Z \
-  --run-id cnn_ohlcv_20260323T205807Z
+  --run-id hgbt_ohlcv_20260323T221000Z \
+  --run-id mlp_ohlcv_20260323T221817Z \
+  --run-id lstm_ohlcv_20260323T221802Z \
+  --run-id tcn_ohlcv_20260323T221802Z \
+  --run-id cnn_ohlcv_20260323T221802Z
+```
+
+```bash
+python scripts/generate_figures.py \
+  --prefix q1_2024_cnn_signal_ablation \
+  --title "Pooled Q1 2024 CNN Signal Ablation" \
+  --equity-top-k 3 \
+  --run-id cnn_ohlcv_20260323T221802Z \
+  --run-id cnn_ohlcv_funding_20260323T221817Z \
+  --run-id cnn_ohlcv_open_interest_20260323T221817Z
 ```
 
 ## Methodology principles

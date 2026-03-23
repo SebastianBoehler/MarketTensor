@@ -1,15 +1,35 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pandas as pd
 
-from markettensor.evaluation.reporting import compute_equity_curve, load_run_summary, model_label
+from markettensor.evaluation.reporting import (
+    RunSummary,
+    compute_equity_curve,
+    load_run_summary,
+    model_label,
+    plot_labels,
+)
 
 
 def test_model_label_humanizes_names():
     assert model_label("cnn1d") == "1D CNN"
-    assert model_label("logistic") == "Logistic Regression"
+    assert model_label("logistic") == "LogReg"
+
+
+def test_plot_labels_disambiguates_duplicate_model_families():
+    summaries = [
+        RunSummary("cnn_ohlcv_20260323T000000Z", "cnn1d", {}, Path("predictions.csv")),
+        RunSummary(
+            "cnn_ohlcv_funding_20260323T000000Z",
+            "cnn1d",
+            {},
+            Path("predictions.csv"),
+        ),
+    ]
+    assert plot_labels(summaries) == ["1D CNN (OHLCV)", "1D CNN (OHLCV + Funding)"]
 
 
 def test_load_run_summary_reads_artifacts(tmp_path):

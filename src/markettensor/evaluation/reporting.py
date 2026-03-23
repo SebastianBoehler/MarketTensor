@@ -45,14 +45,54 @@ def model_label(model_name: str) -> str:
     """Convert internal model names into plot labels."""
 
     labels = {
-        "logistic": "Logistic Regression",
+        "logistic": "LogReg",
         "cnn1d": "1D CNN",
         "lstm": "LSTM",
         "tcn": "TCN",
         "mlp": "MLP",
-        "hgbt": "HistGradientBoosting",
+        "hgbt": "HGBT",
     }
     return labels.get(model_name, model_name)
+
+
+def feature_set_label(run_id: str) -> str:
+    """Extract a human-readable feature-set label from a run identifier."""
+
+    prefix = run_id.rsplit("_", 1)[0]
+    _, _, suffix = prefix.partition("_")
+    tokens = suffix.split("_")
+    token_labels = {
+        "ohlcv": "OHLCV",
+        "funding": "Funding",
+        "open": "Open",
+        "interest": "Interest",
+        "liquidation": "Liquidation",
+        "combined": "Combined",
+        "all": "All",
+    }
+    words: list[str] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "open" and index + 1 < len(tokens) and tokens[index + 1] == "interest":
+            words.append("Open Interest")
+            index += 2
+            continue
+        words.append(token_labels.get(token, token.replace("-", " ").title()))
+        index += 1
+    return " + ".join(words)
+
+
+def plot_labels(summaries: list[RunSummary]) -> list[str]:
+    """Generate disambiguated plot labels for run summaries."""
+
+    base_labels = [model_label(summary.model_name) for summary in summaries]
+    if len(set(base_labels)) == len(base_labels):
+        return base_labels
+    return [
+        f"{base} ({feature_set_label(summary.run_id)})"
+        for base, summary in zip(base_labels, summaries, strict=True)
+    ]
 
 
 def compute_equity_curve(
