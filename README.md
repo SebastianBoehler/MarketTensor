@@ -104,46 +104,52 @@ python scripts/export_onnx.py --run-id latest
 
 Each experiment stores the resolved Hydra configuration, feature manifest, scaler parameters, metrics, predictions, and model artifacts for reproducibility.
 
-## First benchmark snapshot
+## Long-History Walk-Forward Snapshot
 
-The repository now includes a first pooled Q1 2024 benchmark slice for `BTCUSDT`, `ETHUSDT`, and `SOLUSDT` on `1h` bars. The figures below are generated directly from saved run artifacts using temporal train/validation/test splits, train-only scaling, and validation-based checkpoint selection for deep models. They are intended as a paper-style benchmark snapshot, not a finished study.
+The repository now includes a longer-history walk-forward benchmark over raw futures archives downloaded for `2023-01-01` through `2025-12-31`, using expanding-window evaluation on `BTCUSDT`, `ETHUSDT`, and `SOLUSDT` `1h` bars. The saved fold tables in [docs/results/long_history_core_architectures_summary.csv](docs/results/long_history_core_architectures_summary.csv) and [docs/results/long_history_cnn_funding_ablation_summary.csv](docs/results/long_history_cnn_funding_ablation_summary.csv) cover three expanding folds whose test windows span `2024-10-19` through `2025-09-13` (UTC).
 
-Current headline results on this slice:
+Current headline results on this longer-history benchmark:
 
-- Best accuracy: `1D CNN (OHLCV)` at `0.5469`
-- Best ROC-AUC: `LSTM (OHLCV)` at `0.5356`
-- Best cumulative return: `HGBT (OHLCV)` at `0.7176`
-- Best Sharpe: `1D CNN (OHLCV)` at `1.0636`
+- Best mean accuracy: `LogReg` at `0.5122`
+- Best mean ROC-AUC: `LSTM` at `0.5194`
+- Best mean cumulative return: `1D CNN` at `0.1802`
+- Best mean Sharpe: `1D CNN` at `0.0233`
+- Funding ablation: `1D CNN (OHLCV + Funding)` improves the mean walk-forward Sharpe to `0.1330` versus `0.0233` for `1D CNN`
 
-![Architecture comparison](docs/figures/q1_2024_architectures_model_comparison.png)
+The important scientific point is not that one model is dramatically strong. On this materially longer sample, the benchmark is much harder than the short Q1 2024 slice: discrimination is modest, cost-adjusted results are unstable, and only the CNN variants show slightly positive mean trading metrics with large fold-to-fold variance.
 
-![Architecture equity curves](docs/figures/q1_2024_architectures_equity_curves.png)
+![Long-history core summary](docs/figures/long_history_core_architectures_summary.png)
 
-![CNN signal ablation](docs/figures/q1_2024_cnn_signal_ablation_model_comparison.png)
+![Long-history core fold traces](docs/figures/long_history_core_architectures_fold_traces.png)
 
-Recreate them with:
+![Long-history CNN funding ablation](docs/figures/long_history_cnn_funding_ablation_summary.png)
+
+Recreate the longer-history tables and figures with:
 
 ```bash
-python scripts/generate_figures.py \
-  --prefix q1_2024_architectures \
-  --title "Pooled Q1 2024 Architecture Comparison (OHLCV)" \
-  --equity-top-k 4 \
-  --run-id logistic_ohlcv_20260323T205807Z \
-  --run-id hgbt_ohlcv_20260323T221000Z \
-  --run-id mlp_ohlcv_20260323T221817Z \
-  --run-id lstm_ohlcv_20260323T221802Z \
-  --run-id tcn_ohlcv_20260323T221802Z \
-  --run-id cnn_ohlcv_20260323T221802Z
+python scripts/run_walk_forward.py \
+  --suite-name long_history_core_architectures \
+  --config-name logistic_ohlcv \
+  --config-name hgbt_ohlcv \
+  --config-name lstm_ohlcv \
+  --config-name cnn_ohlcv \
+  --symbols BTCUSDT ETHUSDT SOLUSDT
 ```
 
 ```bash
-python scripts/generate_figures.py \
-  --prefix q1_2024_cnn_signal_ablation \
-  --title "Pooled Q1 2024 CNN Signal Ablation" \
-  --equity-top-k 3 \
-  --run-id cnn_ohlcv_20260323T221802Z \
-  --run-id cnn_ohlcv_funding_20260323T221817Z \
-  --run-id cnn_ohlcv_open_interest_20260323T221817Z
+python scripts/run_walk_forward.py \
+  --suite-name long_history_cnn_funding_ablation \
+  --config-name cnn_ohlcv \
+  --config-name cnn_ohlcv_funding \
+  --symbols BTCUSDT ETHUSDT SOLUSDT
+```
+
+```bash
+python scripts/generate_walk_forward_figures.py \
+  --summary-csv docs/results/long_history_core_architectures_summary.csv \
+  --folds-csv docs/results/long_history_core_architectures_folds.csv \
+  --prefix long_history_core_architectures \
+  --title "Long-History Walk-Forward Core Architecture Comparison"
 ```
 
 ## Methodology principles
