@@ -32,6 +32,11 @@ def test_plot_labels_disambiguates_duplicate_model_families():
     assert plot_labels(summaries) == ["1D CNN (OHLCV)", "1D CNN (OHLCV + Funding)"]
 
 
+def test_plot_labels_handles_config_names_without_timestamp_suffix():
+    summaries = [RunSummary("logistic_ohlcv", "logistic", {}, Path("predictions.csv"))]
+    assert plot_labels(summaries) == ["LogReg"]
+
+
 def test_load_run_summary_reads_artifacts(tmp_path):
     run_dir = tmp_path / "run"
     run_dir.mkdir()

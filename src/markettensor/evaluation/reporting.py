@@ -58,8 +58,10 @@ def model_label(model_name: str) -> str:
 def feature_set_label(run_id: str) -> str:
     """Extract a human-readable feature-set label from a run identifier."""
 
-    prefix = run_id.rsplit("_", 1)[0]
-    _, _, suffix = prefix.partition("_")
+    parts = run_id.split("_")
+    if parts and parts[-1].endswith("Z") and "T" in parts[-1]:
+        parts = parts[:-1]
+    suffix = "_".join(parts[1:]) if len(parts) > 1 else run_id
     tokens = suffix.split("_")
     token_labels = {
         "ohlcv": "OHLCV",

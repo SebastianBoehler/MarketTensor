@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from calendar import monthrange
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -49,11 +50,11 @@ class BinanceFamilySpec:
     """Path spec for a Binance archive family."""
 
     family: str
-    cadence: str
+    cadence: str | None = None
 
 
 FAMILY_SPECS = {
-    "klines": BinanceFamilySpec(family="klines", cadence="daily"),
+    "klines": BinanceFamilySpec(family="klines"),
     "fundingRate": BinanceFamilySpec(family="fundingRate", cadence="monthly"),
     "metrics": BinanceFamilySpec(family="metrics", cadence="daily"),
 }
@@ -79,11 +80,8 @@ class BinanceUMFuturesDataSource(DataSource):
         written: list[Path] = []
         for family in families:
             spec = FAMILY_SPECS[family]
-            tokens = (
-                _daily_dates(start, end) if spec.cadence == "daily" else _monthly_dates(start, end)
-            )
-            for token in tokens:
-                file_path = self._download_one(symbol, interval, destination, spec, token)
+            for cadence, token in self._plan_downloads(spec, start, end):
+                file_path = self._download_one(symbol, interval, destination, spec, cadence, token)
                 if file_path is not None:
                     written.append(file_path)
         return written
@@ -94,6 +92,7 @@ class BinanceUMFuturesDataSource(DataSource):
         interval: str,
         destination: Path,
         spec: BinanceFamilySpec,
+        cadence: str,
         token: str,
     ) -> Path | None:
         file_name = self._build_filename(symbol, interval, spec.family, token)
@@ -101,7 +100,7 @@ class BinanceUMFuturesDataSource(DataSource):
         family_dir.mkdir(parents=True, exist_ok=True)
         file_path = family_dir / file_name
 
-        url = self._build_url(symbol, interval, spec.family, spec.cadence, token)
+        url = self._build_url(symbol, interval, spec.family, cadence, token)
         checksum_url = f"{url}.CHECKSUM"
         checksum_path = file_path.with_name(f"{file_path.name}.CHECKSUM")
         expected_checksum = self._download_checksum(checksum_url, checksum_path)
@@ -137,6 +136,32 @@ class BinanceUMFuturesDataSource(DataSource):
                 f"{BASE_URL}/{cadence}/{family}/{symbol}/{interval}/{symbol}-{interval}-{token}.zip"
             )
         return f"{BASE_URL}/{cadence}/{family}/{symbol}/{symbol}-{family}-{token}.zip"
+
+    def _plan_downloads(
+        self,
+        spec: BinanceFamilySpec,
+        start: date,
+        end: date,
+    ) -> list[tuple[str, str]]:
+        if spec.family != "klines":
+            cadence = spec.cadence or "daily"
+            tokens = _daily_dates(start, end) if cadence == "daily" else _monthly_dates(start, end)
+            return [(cadence, token) for token in tokens]
+
+        monthly_tokens: list[tuple[str, str]] = []
+        daily_tokens: list[tuple[str, str]] = []
+        for month_token in _monthly_dates(start, end):
+            month_start = _parse_date(f"{month_token}-01")
+            month_end = month_start.replace(day=monthrange(month_start.year, month_start.month)[1])
+            if start <= month_start and month_end <= end:
+                monthly_tokens.append(("monthly", month_token))
+                continue
+            overlap_start = max(start, month_start)
+            overlap_end = min(end, month_end)
+            daily_tokens.extend(
+                ("daily", token) for token in _daily_dates(overlap_start, overlap_end)
+            )
+        return [*monthly_tokens, *daily_tokens]
 
     def _download_checksum(self, checksum_url: str, checksum_path: Path) -> str | None:
         response = self.session.get(checksum_url, timeout=30)

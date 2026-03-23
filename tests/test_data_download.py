@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
 
-from markettensor.data.binance import BinanceUMFuturesDataSource
+from markettensor.data.binance import FAMILY_SPECS, BinanceUMFuturesDataSource
 from markettensor.data.loaders import load_klines
 
 
@@ -113,3 +114,13 @@ def test_load_klines_skips_header_row(tmp_path: Path):
 
     assert len(frame) == 1
     assert frame.iloc[0]["close"] == 42050
+
+
+def test_plan_downloads_prefers_monthly_klines_for_full_months():
+    source = BinanceUMFuturesDataSource(session=FakeSession({}))
+    plan = source._plan_downloads(
+        spec=FAMILY_SPECS["klines"],
+        start=date(2024, 1, 1),
+        end=date(2024, 2, 29),
+    )
+    assert plan == [("monthly", "2024-01"), ("monthly", "2024-02")]

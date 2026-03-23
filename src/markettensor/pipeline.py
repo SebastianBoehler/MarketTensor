@@ -19,19 +19,27 @@ def build_dataset(config: dict) -> tuple[pd.DataFrame, list[str]]:
     raw_dir = Path(config["data"]["raw_dir"])
     interval = config["data"]["interval"]
     symbols = config["data"]["symbols"]
+    families = set(config["features"]["families"])
 
     ohlcv = pd.concat(
         [load_klines(symbol, interval, raw_dir) for symbol in symbols], ignore_index=True
     )
-    funding = pd.concat(
-        [load_funding_rates(symbol, raw_dir) for symbol in symbols], ignore_index=True
-    )
-    metrics = pd.concat([load_metrics(symbol, raw_dir) for symbol in symbols], ignore_index=True)
+    funding = None
+    if "funding" in families:
+        funding = pd.concat(
+            [load_funding_rates(symbol, raw_dir) for symbol in symbols], ignore_index=True
+        )
+    metrics = None
+    if "open_interest" in families:
+        metrics = pd.concat(
+            [load_metrics(symbol, raw_dir) for symbol in symbols],
+            ignore_index=True,
+        )
 
     aligned = align_feature_frames(
         ohlcv=ohlcv,
-        funding=funding if not funding.empty else None,
-        metrics=metrics if not metrics.empty else None,
+        funding=funding if funding is not None and not funding.empty else None,
+        metrics=metrics if metrics is not None and not metrics.empty else None,
         lag_bars=config["features"]["lag_bars"],
     )
     feature_result = build_feature_set(aligned, config["features"])
