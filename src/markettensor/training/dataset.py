@@ -22,6 +22,7 @@ class WindowedArrays:
 
     features: np.ndarray
     targets: np.ndarray
+    row_indices: np.ndarray
 
 
 def build_windowed_arrays(
@@ -31,17 +32,24 @@ def build_windowed_arrays(
 
     windows: list[np.ndarray] = []
     targets: list[float] = []
+    row_indices: list[int] = []
     for _, symbol_frame in frame.groupby("symbol", observed=True):
-        symbol_frame = symbol_frame.sort_values("timestamp").reset_index(drop=True)
+        symbol_frame = symbol_frame.sort_values("timestamp").reset_index()
         values = symbol_frame.loc[:, feature_columns].to_numpy(dtype=np.float32)
         labels = symbol_frame["target"].to_numpy(dtype=np.float32)
+        original_indices = symbol_frame["index"].to_numpy(dtype=np.int64)
         for row in range(lookback - 1, len(symbol_frame)):
             window = values[row - lookback + 1 : row + 1]
             if np.isnan(window).any() or np.isnan(labels[row]):
                 continue
             windows.append(window)
             targets.append(labels[row])
-    return WindowedArrays(features=np.asarray(windows), targets=np.asarray(targets))
+            row_indices.append(int(original_indices[row]))
+    return WindowedArrays(
+        features=np.asarray(windows),
+        targets=np.asarray(targets),
+        row_indices=np.asarray(row_indices, dtype=np.int64),
+    )
 
 
 class SequenceDataset(Dataset):
@@ -56,3 +64,11 @@ class SequenceDataset(Dataset):
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         return self.features[index], self.targets[index]
+
+
+def reshape_features_for_model(features: np.ndarray, model_name: str) -> np.ndarray:
+    """Adapt window tensors for models that expect flattened inputs."""
+
+    if model_name == "mlp":
+        return features.reshape(features.shape[0], -1)
+    return features
