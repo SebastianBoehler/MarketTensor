@@ -1,0 +1,7 @@
+name: ohlcv_funding
+families:
+  - ohlcv
+  - funding
+include_liquidation: false
+normalize: true
+lag_bars: 1

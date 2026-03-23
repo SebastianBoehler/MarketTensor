@@ -1,0 +1,8 @@
+name: ohlcv_liquidation_open_interest
+families:
+  - ohlcv
+  - liquidation
+  - open_interest
+include_liquidation: true
+normalize: true
+lag_bars: 1

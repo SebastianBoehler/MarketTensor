@@ -1,0 +1,4 @@
+name: threshold_12
+kind: threshold
+horizon: 12
+threshold: 0.002

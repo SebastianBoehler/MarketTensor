@@ -1,0 +1,6 @@
+name: ohlcv
+families:
+  - ohlcv
+include_liquidation: false
+normalize: true
+lag_bars: 1

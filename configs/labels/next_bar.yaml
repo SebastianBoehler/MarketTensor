@@ -1,0 +1,4 @@
+name: next_bar
+kind: direction
+horizon: 1
+threshold: 0.0

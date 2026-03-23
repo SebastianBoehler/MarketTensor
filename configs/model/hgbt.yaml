@@ -1,0 +1,5 @@
+name: hgbt
+family: sklearn
+lookback: 1
+max_depth: 6
+learning_rate: 0.1

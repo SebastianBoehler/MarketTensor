@@ -1,0 +1,4 @@
+name: logistic
+family: sklearn
+lookback: 1
+max_iter: 500

@@ -1,0 +1,9 @@
+name: combined_all
+families:
+  - ohlcv
+  - funding
+  - open_interest
+  - liquidation
+include_liquidation: true
+normalize: true
+lag_bars: 1

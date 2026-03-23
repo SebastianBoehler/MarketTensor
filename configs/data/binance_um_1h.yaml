@@ -1,0 +1,12 @@
+name: binance_um_1h
+source: binance_um
+symbols:
+  - BTCUSDT
+  - ETHUSDT
+  - SOLUSDT
+interval: 1h
+raw_dir: data/raw/binance_um
+processed_dir: data/processed
+train_ratio: 0.7
+val_ratio: 0.15
+test_ratio: 0.15

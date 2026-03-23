@@ -1,0 +1,8 @@
+name: ohlcv_funding_open_interest
+families:
+  - ohlcv
+  - funding
+  - open_interest
+include_liquidation: false
+normalize: true
+lag_bars: 1
