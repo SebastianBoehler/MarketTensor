@@ -48,6 +48,19 @@ def palette(size: int) -> list[tuple[float, float, float, float]]:
     return [cmap(index) for index in range(size)]
 
 
+def format_plot_label(label: str) -> str:
+    """Compress verbose benchmark labels for figure readability."""
+
+    short = label.replace("1D CNN", "CNN").replace("Open Interest", "OI")
+    short = short.replace("(OHLCV + ", "(")
+    short = short.replace("OHLCV + ", "")
+    short = short.replace("(OHLCV)", "")
+    short = " ".join(short.split())
+    if " (" in short:
+        short = short.replace(" (", "\n(")
+    return short
+
+
 def save_summary_figure(summary: pd.DataFrame, output_dir: Path, prefix: str, title: str) -> None:
     """Save a metric comparison chart with fold-level variability."""
 
@@ -58,6 +71,7 @@ def save_summary_figure(summary: pd.DataFrame, output_dir: Path, prefix: str, ti
         ("sharpe", "Sharpe"),
     ]
     labels = summary["label"].tolist()
+    tick_labels = [format_plot_label(label) for label in labels]
     colors = palette(len(labels))
     figure, axes = plt.subplots(1, len(metric_pairs), figsize=(9.2, 3.1))
     x = np.arange(len(labels))
@@ -66,7 +80,7 @@ def save_summary_figure(summary: pd.DataFrame, output_dir: Path, prefix: str, ti
         stds = summary[f"{metric_key}_std"].to_numpy()
         axis.bar(x, means, yerr=stds, capsize=3, color=colors, width=0.65)
         axis.set_xticks(x)
-        axis.set_xticklabels(labels, rotation=18, ha="right")
+        axis.set_xticklabels(tick_labels, rotation=18, ha="right")
         axis.set_title(metric_label)
         axis.axhline(0.0, color="black", linewidth=0.8, alpha=0.4)
     figure.suptitle(title)
@@ -79,6 +93,7 @@ def save_fold_trace_figure(folds: pd.DataFrame, output_dir: Path, prefix: str) -
     """Save fold-by-fold traces for accuracy and Sharpe."""
 
     labels = folds["label"].drop_duplicates().tolist()
+    display_labels = {label: format_plot_label(label) for label in labels}
     colors = {label: color for label, color in zip(labels, palette(len(labels)), strict=True)}
     figure, axes = plt.subplots(1, 2, figsize=(8.2, 3.1))
     for axis, metric_key, metric_label in zip(
@@ -95,7 +110,7 @@ def save_fold_trace_figure(folds: pd.DataFrame, output_dir: Path, prefix: str) -
                 marker="o",
                 linewidth=1.6,
                 color=colors[label],
-                label=label,
+                label=display_labels[label],
             )
         axis.set_title(metric_label)
         axis.set_xlabel("Fold")

@@ -22,6 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--suite-name", required=True)
     parser.add_argument("--config-name", dest="config_names", action="append", required=True)
     parser.add_argument("--symbols", nargs="+")
+    parser.add_argument("--override", dest="overrides", action="append", default=[])
     parser.add_argument("--output-dir", default="docs/results")
     return parser.parse_args()
 
@@ -29,7 +30,7 @@ def parse_args() -> argparse.Namespace:
 def run_suite(args: argparse.Namespace) -> WalkForwardArtifacts:
     fold_frames: list[pd.DataFrame] = []
     for config_name in args.config_names:
-        overrides: list[str] = []
+        overrides = list(args.overrides)
         if args.symbols:
             overrides.append(f"experiment.data.symbols=[{','.join(args.symbols)}]")
         config = to_container(load_experiment_config(config_name, overrides=overrides))
