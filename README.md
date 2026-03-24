@@ -96,6 +96,7 @@ python scripts/export_onnx.py --run-id latest
 
 - `cnn_ohlcv`
 - `cnn_ohlcv_funding`
+- `cnn_ohlcv_funding_open_interest`
 - `cnn_ohlcv_liquidation`
 - `cnn_combined_all`
 - `lstm_ohlcv`
@@ -106,23 +107,40 @@ Each experiment stores the resolved Hydra configuration, feature manifest, scale
 
 ## Long-History Walk-Forward Snapshot
 
-The repository now includes a longer-history walk-forward benchmark over raw futures archives downloaded for `2023-01-01` through `2025-12-31`, using expanding-window evaluation on `BTCUSDT`, `ETHUSDT`, and `SOLUSDT` `1h` bars. The saved fold tables in [docs/results/long_history_core_architectures_summary.csv](docs/results/long_history_core_architectures_summary.csv) and [docs/results/long_history_cnn_funding_ablation_summary.csv](docs/results/long_history_cnn_funding_ablation_summary.csv) cover three expanding folds whose test windows span `2024-10-19` through `2025-09-13` (UTC).
+The repository now includes a four-fold expanding-window benchmark over raw Binance USD-M futures archives downloaded for `2023-01-01` through `2025-12-31`, using pooled `BTCUSDT`, `ETHUSDT`, and `SOLUSDT` `1h` bars. A raw-archive integrity sweep after download verified zero missing checksum files and zero checksum mismatches across:
 
-Current headline results on this longer-history benchmark:
+- `165` kline archives per symbol
+- `36` funding-rate archives per symbol
+- `1,096` metrics archives per symbol
 
-- Best mean accuracy: `LogReg` at `0.5122`
-- Best mean ROC-AUC: `LSTM` at `0.5194`
-- Best mean cumulative return: `1D CNN` at `0.1802`
-- Best mean Sharpe: `1D CNN` at `0.0233`
-- Funding ablation: `1D CNN (OHLCV + Funding)` improves the mean walk-forward Sharpe to `0.1330` versus `0.0233` for `1D CNN`
+The refreshed core architecture benchmark in [docs/results/long_history_core_architectures_summary.csv](docs/results/long_history_core_architectures_summary.csv) uses four expanding folds whose test windows span `2024-10-19 23:00:00+00:00` through `2025-12-31 21:00:00+00:00`.
 
-The important scientific point is not that one model is dramatically strong. On this materially longer sample, the benchmark is much harder than the short Q1 2024 slice: discrimination is modest, cost-adjusted results are unstable, and only the CNN variants show slightly positive mean trading metrics with large fold-to-fold variance.
+Current core-model headline results on this longer-history benchmark:
+
+- Best mean accuracy: `LSTM` at `0.5126`
+- Best mean ROC-AUC: `LSTM` at `0.5202`
+- Best mean cumulative return: `1D CNN` at `0.1877`
+- Best mean Sharpe: `1D CNN` at `0.0453`
+
+The full available CNN signal ablation in [docs/results/long_history_cnn_full_ablation_summary.csv](docs/results/long_history_cnn_full_ablation_summary.csv) uses the same four-fold protocol, with test windows spanning `2024-10-21 20:00:00+00:00` through `2025-12-31 22:00:00+00:00` once lagged feature availability is enforced.
+
+Current signal-ablation headline results:
+
+- Best mean accuracy: `1D CNN (OHLCV + Open Interest)` at `0.5079`
+- Best mean ROC-AUC: `1D CNN (OHLCV + Open Interest)` at `0.5002`
+- Best mean cumulative return: `1D CNN (OHLCV + Open Interest)` at `0.3880`
+- Best mean Sharpe: `1D CNN (OHLCV + Open Interest)` at `0.0846`
+- `OHLCV + Funding` alone does not outperform the OHLCV-only CNN on Sharpe in this longer-history setup
+
+The scientific takeaway is still restrained. On this materially longer sample ending on `2025-12-31`, classification performance remains only slightly above chance and trading outcomes remain fold-sensitive. The most defensible positive finding in the current benchmark is that open-interest-style exchange metrics add more value than funding rates for this simple CNN, while the architecture comparison remains broadly difficult and unstable.
 
 ![Long-history core summary](docs/figures/long_history_core_architectures_summary.png)
 
 ![Long-history core fold traces](docs/figures/long_history_core_architectures_fold_traces.png)
 
-![Long-history CNN funding ablation](docs/figures/long_history_cnn_funding_ablation_summary.png)
+![Long-history CNN full ablation](docs/figures/long_history_cnn_full_ablation_summary.png)
+
+![Long-history CNN ablation fold traces](docs/figures/long_history_cnn_full_ablation_fold_traces.png)
 
 Recreate the longer-history tables and figures with:
 
@@ -133,15 +151,19 @@ python scripts/run_walk_forward.py \
   --config-name hgbt_ohlcv \
   --config-name lstm_ohlcv \
   --config-name cnn_ohlcv \
-  --symbols BTCUSDT ETHUSDT SOLUSDT
+  --symbols BTCUSDT ETHUSDT SOLUSDT \
+  --override experiment.eval.walk_forward.n_splits=4
 ```
 
 ```bash
 python scripts/run_walk_forward.py \
-  --suite-name long_history_cnn_funding_ablation \
+  --suite-name long_history_cnn_full_ablation \
   --config-name cnn_ohlcv \
   --config-name cnn_ohlcv_funding \
-  --symbols BTCUSDT ETHUSDT SOLUSDT
+  --config-name cnn_ohlcv_open_interest \
+  --config-name cnn_ohlcv_funding_open_interest \
+  --symbols BTCUSDT ETHUSDT SOLUSDT \
+  --override experiment.eval.walk_forward.n_splits=4
 ```
 
 ```bash
@@ -150,6 +172,14 @@ python scripts/generate_walk_forward_figures.py \
   --folds-csv docs/results/long_history_core_architectures_folds.csv \
   --prefix long_history_core_architectures \
   --title "Long-History Walk-Forward Core Architecture Comparison"
+```
+
+```bash
+python scripts/generate_walk_forward_figures.py \
+  --summary-csv docs/results/long_history_cnn_full_ablation_summary.csv \
+  --folds-csv docs/results/long_history_cnn_full_ablation_folds.csv \
+  --prefix long_history_cnn_full_ablation \
+  --title "Long-History Walk-Forward CNN Signal Ablation"
 ```
 
 ## Methodology principles
