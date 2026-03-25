@@ -1,0 +1,6 @@
+{
+  "fee_bps": 2.0,
+  "folds_csv": "docs/results/long_history_naive_vs_best_folds.csv",
+  "slippage_bps": 1.0,
+  "suite_run_root": "runs/walk_forward/long_history_naive_vs_best"
+}
