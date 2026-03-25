@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from markettensor.evaluation.cost_model import cost_in_return_space
+from markettensor.evaluation.trading import build_trade_frame
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,9 @@ def model_label(model_name: str) -> str:
         "tcn": "TCN",
         "mlp": "MLP",
         "hgbt": "HGBT",
+        "majority": "Majority",
+        "random": "Random",
+        "persistence": "Persistence",
     }
     return labels.get(model_name, model_name)
 
@@ -101,13 +105,38 @@ def compute_equity_curve(
     predictions: pd.DataFrame,
     fee_bps: float = 2.0,
     slippage_bps: float = 1.0,
+    holding_period_bars: int = 1,
 ) -> pd.DataFrame:
     """Compute a cost-adjusted cumulative return curve from saved predictions."""
 
     ordered = predictions.sort_values(["timestamp", "symbol"]).reset_index(drop=True).copy()
-    positions = np.where(ordered["probability"].to_numpy() >= 0.5, 1.0, -1.0)
-    turnover = np.abs(np.diff(positions, prepend=0.0))
+    prediction_source = (
+        ordered["prediction"].to_numpy()
+        if "prediction" in ordered
+        else (ordered["probability"].to_numpy() >= 0.5).astype(int)
+    )
+    trades = build_trade_frame(
+        predictions=prediction_source,
+        future_returns=ordered["future_return"].to_numpy(),
+        symbols=ordered["symbol"].to_numpy(),
+        timestamps=ordered["timestamp"].to_numpy(),
+        holding_period_bars=holding_period_bars,
+        non_overlapping=True,
+    )
     unit_cost = cost_in_return_space(turnover=1.0, fee_bps=fee_bps, slippage_bps=slippage_bps)
-    net_returns = positions * ordered["future_return"].to_numpy() - turnover * unit_cost
-    ordered["equity_curve"] = np.cumprod(1.0 + net_returns) - 1.0
-    return ordered
+    turnover_parts = []
+    for _, symbol_frame in trades.groupby("symbol", observed=True):
+        positions = symbol_frame["position"].to_numpy(dtype=np.float64)
+        turnover_parts.append(
+            pd.Series(
+                np.abs(np.diff(positions, prepend=0.0)),
+                index=symbol_frame.index,
+            )
+        )
+    trades["turnover"] = pd.concat(turnover_parts).sort_index()
+    trades["net_return"] = (
+        trades["position"] * trades["future_return"] - trades["turnover"] * unit_cost
+    )
+    basket = trades.groupby("timestamp", observed=True)["net_return"].mean().reset_index()
+    basket["equity_curve"] = np.cumprod(1.0 + basket["net_return"].to_numpy()) - 1.0
+    return basket

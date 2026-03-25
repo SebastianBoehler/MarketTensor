@@ -26,6 +26,11 @@ from markettensor.training.dataset import (
     reshape_features_for_model,
 )
 from markettensor.training.losses import binary_classification_loss
+from markettensor.training.naive import (
+    majority_baseline,
+    persistence_baseline,
+    random_baseline,
+)
 from markettensor.training.preprocess import TrainOnlyScaler
 from markettensor.utils.config import ensure_dir, save_json, save_yaml
 from markettensor.utils.seed import seed_everything
@@ -77,6 +82,14 @@ def train_experiment(
         predictions = _train_sklearn_model(
             config, train_frame, test_frame, feature_columns, scaler, run_dir
         )
+    elif config["model"]["family"] == "naive":
+        predictions = _run_naive_model(
+            config,
+            train_frame,
+            val_frame,
+            test_frame,
+            run_dir,
+        )
     else:
         predictions = _train_torch_model(
             config,
@@ -94,10 +107,14 @@ def train_experiment(
         probabilities=predictions["probability"].to_numpy(),
     )
     strategy_metrics = trading_metrics(
-        probabilities=predictions["probability"].to_numpy(),
+        predictions=predictions["prediction"].to_numpy(),
         future_returns=predictions["future_return"].to_numpy(),
         fee_bps=float(config["eval"]["fee_bps"]),
         slippage_bps=float(config["eval"]["slippage_bps"]),
+        symbols=predictions["symbol"].to_numpy(),
+        timestamps=predictions["timestamp"].to_numpy(),
+        holding_period_bars=int(config["labels"]["horizon"]),
+        non_overlapping=True,
     )
     metrics = {**prediction_metrics, **strategy_metrics}
 
@@ -115,6 +132,37 @@ def train_experiment(
     save_artifact_metadata(artifact, run_dir / "artifact_metadata.json")
     save_json({"run_id": run_id, "feature_columns": feature_columns}, run_dir / "metadata.json")
     return TrainingResult(run_dir=run_dir, metrics=metrics, predictions=predictions)
+
+
+def _run_naive_model(
+    config: dict[str, Any],
+    train_frame: pd.DataFrame,
+    val_frame: pd.DataFrame,
+    test_frame: pd.DataFrame,
+    run_dir: Path,
+) -> pd.DataFrame:
+    """Evaluate one of the deterministic naive baselines."""
+
+    model_name = config["model"]["name"]
+    if model_name == "majority":
+        result = majority_baseline(train_frame, test_frame)
+    elif model_name == "random":
+        result = random_baseline(
+            train_frame,
+            test_frame,
+            seed=int(config["train"]["seed"]),
+        )
+    elif model_name == "persistence":
+        context_frame = pd.concat([train_frame, val_frame, test_frame], ignore_index=True)
+        result = persistence_baseline(context_frame, test_frame)
+    else:
+        raise KeyError(f"Unsupported naive model config: {model_name}")
+
+    save_json({"model_name": model_name}, run_dir / "model.json")
+    return test_frame.loc[:, ["timestamp", "symbol", "target", "future_return"]].assign(
+        probability=result.probability,
+        prediction=result.prediction,
+    )
 
 
 def _train_sklearn_model(

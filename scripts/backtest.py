@@ -6,6 +6,8 @@ import argparse
 import json
 from pathlib import Path
 
+import yaml
+
 from markettensor.evaluation.trading import trading_metrics
 from markettensor.training.loop import latest_run_path, load_predictions
 
@@ -24,11 +26,16 @@ def main() -> None:
     root = Path(args.runs_dir)
     run_dir = latest_run_path(root) if args.run_id == "latest" else root / args.run_id
     predictions = load_predictions(run_dir)
+    config = yaml.safe_load((run_dir / "config.yaml").read_text(encoding="utf-8"))
     metrics = trading_metrics(
-        probabilities=predictions["probability"].to_numpy(),
+        predictions=predictions["prediction"].to_numpy(),
         future_returns=predictions["future_return"].to_numpy(),
         fee_bps=args.fee_bps,
         slippage_bps=args.slippage_bps,
+        symbols=predictions["symbol"].to_numpy(),
+        timestamps=predictions["timestamp"].to_numpy(),
+        holding_period_bars=int(config["labels"]["horizon"]),
+        non_overlapping=True,
     )
     print(json.dumps(metrics, indent=2, sort_keys=True))
 

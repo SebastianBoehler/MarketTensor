@@ -1,0 +1,4 @@
+name: horizon_12
+kind: direction
+horizon: 12
+threshold: 0.0

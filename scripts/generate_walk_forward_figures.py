@@ -73,7 +73,7 @@ def save_summary_figure(summary: pd.DataFrame, output_dir: Path, prefix: str, ti
     labels = summary["label"].tolist()
     tick_labels = [format_plot_label(label) for label in labels]
     colors = palette(len(labels))
-    figure, axes = plt.subplots(1, len(metric_pairs), figsize=(9.2, 3.1))
+    figure, axes = plt.subplots(1, len(metric_pairs), figsize=(9.2, 3.1), constrained_layout=True)
     x = np.arange(len(labels))
     for axis, (metric_key, metric_label) in zip(axes, metric_pairs, strict=True):
         means = summary[f"{metric_key}_mean"].to_numpy()
@@ -84,7 +84,6 @@ def save_summary_figure(summary: pd.DataFrame, output_dir: Path, prefix: str, ti
         axis.set_title(metric_label)
         axis.axhline(0.0, color="black", linewidth=0.8, alpha=0.4)
     figure.suptitle(title)
-    figure.tight_layout()
     figure.savefig(output_dir / f"{prefix}_summary.png", bbox_inches="tight")
     plt.close(figure)
 
@@ -95,7 +94,7 @@ def save_fold_trace_figure(folds: pd.DataFrame, output_dir: Path, prefix: str) -
     labels = folds["label"].drop_duplicates().tolist()
     display_labels = {label: format_plot_label(label) for label in labels}
     colors = {label: color for label, color in zip(labels, palette(len(labels)), strict=True)}
-    figure, axes = plt.subplots(1, 2, figsize=(8.2, 3.1))
+    figure, axes = plt.subplots(1, 2, figsize=(8.2, 3.1), constrained_layout=True)
     for axis, metric_key, metric_label in zip(
         axes,
         ["accuracy", "sharpe"],
@@ -117,7 +116,6 @@ def save_fold_trace_figure(folds: pd.DataFrame, output_dir: Path, prefix: str) -
         axis.set_xticks(sorted(folds["fold"].unique()))
     axes[0].set_ylabel("Metric Value")
     axes[1].legend(frameon=False)
-    figure.tight_layout()
     figure.savefig(output_dir / f"{prefix}_fold_traces.png", bbox_inches="tight")
     plt.close(figure)
 

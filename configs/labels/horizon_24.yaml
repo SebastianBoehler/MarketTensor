@@ -1,0 +1,4 @@
+name: horizon_24
+kind: direction
+horizon: 24
+threshold: 0.0
